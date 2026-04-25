@@ -1,0 +1,5 @@
+node_modules/
+.DS_Store
+
+# Klartext-Quellen NICHT committen, wenn das Repo public ist:
+source/

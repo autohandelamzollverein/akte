@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Akte — geschützt</title>
+<script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
+<style>
+  :root { --bg:#0f1115; --panel:#171a21; --panel2:#1d212a; --border:#2a2f3a; --text:#e7e9ee; --muted:#9aa3b2; --accent:#5b9dff; --accent2:#7ab8ff; --warn:#ffb84d; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; background:var(--bg); color:var(--text); font:14px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; }
+  a { color: var(--accent2); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  #gate { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:var(--bg); z-index: 100; }
+  #gate .card { background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:28px 32px; width:min(420px, 92vw); box-shadow:0 8px 40px rgba(0,0,0,.5); }
+  #gate h1 { margin:0 0 8px; font-size:18px; }
+  #gate p { margin:0 0 16px; color:var(--muted); font-size:13px; }
+  #gate input { width:100%; padding:10px 12px; background:var(--panel2); color:var(--text); border:1px solid var(--border); border-radius:8px; font-size:14px; outline:none; }
+  #gate input:focus { border-color: var(--accent); }
+  #gate button { margin-top:12px; width:100%; padding:10px 12px; background:var(--accent); color:#0a1220; border:0; border-radius:8px; font-weight:600; cursor:pointer; }
+  #gate .err { color:#ff7a7a; font-size:12px; margin-top:8px; min-height:16px; }
+  #app { display:none; height:100vh; grid-template-columns: 320px 1fr; }
+  #sidebar { border-right:1px solid var(--border); background:var(--panel); overflow:auto; }
+  #sidebar header { padding:14px 16px; border-bottom:1px solid var(--border); position:sticky; top:0; background:var(--panel); z-index:1; }
+  #sidebar header h2 { margin:0; font-size:13px; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); }
+  #sidebar nav { padding:8px 8px 24px; }
+  .tree-dir { margin-top:6px; }
+  .tree-dir > .label { display:flex; align-items:center; gap:6px; padding:6px 8px; color:var(--muted); font-weight:600; font-size:12px; text-transform:uppercase; letter-spacing:.04em; }
+  .tree-file { display:block; padding:6px 10px 6px 22px; border-radius:6px; color:var(--text); cursor:pointer; word-break:break-word; }
+  .tree-file:hover { background: var(--panel2); }
+  .tree-file.active { background: #2a3550; color:#fff; }
+  .tree-file .ico { display:inline-block; width:16px; opacity:.7; margin-right:4px; }
+  main { overflow:auto; }
+  .toolbar { display:flex; align-items:center; gap:12px; padding:10px 18px; border-bottom:1px solid var(--border); background:var(--panel); position:sticky; top:0; z-index:1; }
+  .toolbar .crumb { color:var(--muted); font-size:13px; word-break: break-all; }
+  .toolbar .crumb b { color:var(--text); }
+  .toolbar .spacer { flex:1; }
+  .toolbar button { background:var(--panel2); color:var(--text); border:1px solid var(--border); border-radius:6px; padding:6px 10px; font-size:12px; cursor:pointer; }
+  .toolbar button:hover { border-color: var(--accent); }
+  .viewer { padding: 22px 28px; max-width: 1000px; }
+  .viewer h1 { font-size:22px; margin:0 0 6px; }
+  .viewer h2 { font-size:17px; margin:24px 0 8px; }
+  .viewer h3 { font-size:15px; margin:18px 0 6px; }
+  .viewer .meta { color:var(--muted); font-size:12px; margin-bottom:16px; }
+  .viewer img { max-width:100%; border:1px solid var(--border); border-radius:8px; background:#fff; }
+  .viewer iframe { width:100%; height:calc(100vh - 140px); border:1px solid var(--border); border-radius:8px; background:#fff; }
+  .viewer pre { white-space:pre-wrap; word-wrap:break-word; background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:14px 16px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size:13px; }
+  .viewer code { background: var(--panel); padding: 1px 6px; border-radius:4px; font-size: 13px; }
+  .viewer blockquote { border-left:3px solid var(--accent); margin:10px 0; padding:4px 14px; color:var(--muted); }
+  .viewer table { border-collapse: collapse; margin: 10px 0; }
+  .viewer th, .viewer td { border:1px solid var(--border); padding:6px 10px; text-align:left; }
+  .viewer th { background: var(--panel2); }
+  .viewer ul, .viewer ol { padding-left: 22px; }
+  .viewer hr { border: 0; border-top: 1px solid var(--border); margin: 20px 0; }
+  .notice { background: #2a2418; border:1px solid #5a4a1c; color: var(--warn); padding: 10px 14px; border-radius: 8px; margin-bottom: 10px; font-size: 13px; }
+  .placeholder { color: var(--muted); padding: 60px; text-align: center; font-size: 14px; }
+  .ref-link { color: var(--accent2); border-bottom: 1px dashed var(--accent2); cursor: pointer; }
+  .ref-link:hover { color: #fff; border-color:#fff; }
+</style>
+</head>
+<body>
+
+<div id="gate">
+  <form class="card" id="gate-form" onsubmit="event.preventDefault(); unlock();">
+    <h1>🔒 Geschützte Akte</h1>
+    <p>Bitte Passwort eingeben, um die Dokumentation zu öffnen.</p>
+    <input id="pw" type="password" autocomplete="current-password" autofocus />
+    <button type="submit">Entsperren</button>
+    <div class="err" id="err"></div>
+  </form>
+</div>
+
+<div id="app">
+  <aside id="sidebar">
+    <header><h2>Akte</h2></header>
+    <nav id="tree"></nav>
+  </aside>
+  <main>
+    <div class="toolbar">
+      <div class="crumb" id="crumb">Übersicht</div>
+      <div class="spacer"></div>
+      <button id="dl-btn" style="display:none" onclick="downloadCurrent()">Download</button>
+    </div>
+    <div id="viewer" class="viewer"></div>
+  </main>
+</div>
+
+<script id="payload" type="application/json">__PAYLOAD__</script>
+<script>
+const PAYLOAD = JSON.parse(document.getElementById('payload').textContent);
+let MANIFEST = null;
+let CURRENT = null;
+const blobUrlCache = new Map();
+
+function b64ToBytes(b64) {
+  const bin = atob(b64);
+  const arr = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return arr;
+}
+
+async function unlock() {
+  const pw = document.getElementById('pw').value;
+  const err = document.getElementById('err');
+  err.textContent = '';
+  try {
+    const salt = b64ToBytes(PAYLOAD.salt);
+    const iv = b64ToBytes(PAYLOAD.iv);
+    const ct = b64ToBytes(PAYLOAD.ct);
+    const enc = new TextEncoder();
+    const km = await crypto.subtle.importKey('raw', enc.encode(pw), 'PBKDF2', false, ['deriveKey']);
+    const key = await crypto.subtle.deriveKey(
+      { name: 'PBKDF2', salt, iterations: PAYLOAD.iter, hash: 'SHA-256' },
+      km,
+      { name: 'AES-GCM', length: 256 },
+      false,
+      ['decrypt']
+    );
+    const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ct);
+    MANIFEST = JSON.parse(new TextDecoder().decode(pt));
+    document.getElementById('gate').style.display = 'none';
+    document.getElementById('app').style.display = 'grid';
+    boot();
+  } catch (e) {
+    err.textContent = 'Falsches Passwort.';
+  }
+}
+
+function boot() {
+  document.title = MANIFEST.title;
+  renderTree();
+  // Open the start file by default if present
+  const start = Object.keys(MANIFEST.files).find(p => /01_Start_Hier\.md$/i.test(p));
+  if (start) openFile(start); else showHome();
+}
+
+function renderTree() {
+  const root = document.getElementById('tree');
+  root.innerHTML = '';
+  const home = document.createElement('a');
+  home.className = 'tree-file';
+  home.textContent = '🏠 Übersicht';
+  home.style.fontWeight = '600';
+  home.onclick = (e) => { e.preventDefault(); showHome(); markActive(null); };
+  root.appendChild(home);
+  root.appendChild(buildTreeNode(MANIFEST.tree));
+}
+
+function buildTreeNode(nodes) {
+  const frag = document.createDocumentFragment();
+  for (const n of nodes) {
+    if (n.type === 'dir') {
+      const div = document.createElement('div');
+      div.className = 'tree-dir';
+      const lbl = document.createElement('div');
+      lbl.className = 'label';
+      lbl.textContent = '📁 ' + n.name;
+      div.appendChild(lbl);
+      div.appendChild(buildTreeNode(n.children));
+      frag.appendChild(div);
+    } else {
+      const a = document.createElement('a');
+      a.className = 'tree-file';
+      a.dataset.path = n.path;
+      const icoMap = { pdf:'📄', image:'🖼️', md:'📝', text:'📝' };
+      const ico = icoMap[n.kind] || '📎';
+      a.innerHTML = '<span class="ico">' + ico + '</span>' + escapeHtml(n.name);
+      a.onclick = (e) => { e.preventDefault(); openFile(n.path); };
+      frag.appendChild(a);
+    }
+  }
+  return frag;
+}
+
+function markActive(p) {
+  document.querySelectorAll('.tree-file').forEach(el => el.classList.toggle('active', el.dataset.path === p));
+}
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[c]);
+}
+
+function showHome() {
+  CURRENT = null;
+  document.getElementById('crumb').innerHTML = 'Übersicht';
+  document.getElementById('dl-btn').style.display = 'none';
+  const v = document.getElementById('viewer');
+  v.className = 'viewer';
+  const notesHtml = (MANIFEST.notes || []).map(n => '<div class="notice">⚠️ ' + escapeHtml(n) + '</div>').join('');
+  v.innerHTML = '<h1>' + escapeHtml(MANIFEST.title) + '</h1>' +
+    '<div class="meta">Stand: ' + new Date(MANIFEST.generated).toLocaleString('de-DE') + '</div>' +
+    notesHtml +
+    '<p>Wähle links eine Datei, oder beginne mit <span class="ref-link" onclick="openStart()">Start_Hier</span>.</p>';
+}
+
+function openStart() {
+  const start = Object.keys(MANIFEST.files).find(p => /01_Start_Hier\.md$/i.test(p));
+  if (start) openFile(start);
+}
+
+function openFile(p) {
+  if (!MANIFEST.files[p]) { console.warn('not found', p); return; }
+  CURRENT = p;
+  markActive(p);
+  document.getElementById('crumb').innerHTML = '<b>' + escapeHtml(p) + '</b>';
+  const f = MANIFEST.files[p];
+  const v = document.getElementById('viewer');
+  v.className = 'viewer';
+  document.getElementById('dl-btn').style.display = '';
+  const baseName = p.split('/').pop();
+  const head = '<h1>' + escapeHtml(baseName) + '</h1><div class="meta">' + escapeHtml(p) + '</div>';
+  if (f.kind === 'md') {
+    v.innerHTML = head + '<div id="md-body">' + marked.parse(f.content) + '</div>';
+    const body = document.getElementById('md-body');
+    rewriteLinks(body, p);
+    autoLinkText(body);
+  } else if (f.kind === 'text') {
+    const wrapper = document.createElement('pre');
+    wrapper.textContent = f.content;
+    v.innerHTML = head;
+    v.appendChild(wrapper);
+    autoLinkText(wrapper);
+  } else if (f.kind === 'pdf') {
+    v.innerHTML = head + '<iframe src="' + ensureBlobUrl(p) + '"></iframe>';
+  } else if (f.kind === 'image') {
+    v.innerHTML = head + '<img src="' + ensureBlobUrl(p) + '" alt="">';
+  } else {
+    v.innerHTML = head + '<div class="placeholder">Dateityp nicht direkt anzeigbar — bitte Download verwenden.</div>';
+  }
+  document.querySelector('main').scrollTop = 0;
+}
+
+function ensureBlobUrl(p) {
+  if (blobUrlCache.has(p)) return blobUrlCache.get(p);
+  const f = MANIFEST.files[p];
+  const bytes = b64ToBytes(f.b64);
+  const url = URL.createObjectURL(new Blob([bytes], { type: f.mime }));
+  blobUrlCache.set(p, url);
+  return url;
+}
+
+function downloadCurrent() {
+  if (!CURRENT) return;
+  const f = MANIFEST.files[CURRENT];
+  const url = (f.kind === 'md' || f.kind === 'text')
+    ? URL.createObjectURL(new Blob([f.content], { type: f.mime }))
+    : ensureBlobUrl(CURRENT);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = CURRENT.split('/').pop();
+  document.body.appendChild(a); a.click(); a.remove();
+}
+
+// Resolve a relative reference (from within file `fromPath`) to a real entry in MANIFEST.files.
+function resolveRef(href, fromPath) {
+  if (/^[a-z]+:/i.test(href) || href.startsWith('#') || href.startsWith('//')) return null;
+  let target = decodeURI(href).replace(/^\.\//, '');
+  // strip query/hash
+  target = target.split('#')[0].split('?')[0];
+  const fromDir = fromPath.includes('/') ? fromPath.split('/').slice(0, -1).join('/') : '';
+  const parts = (fromDir ? fromDir + '/' + target : target).split('/');
+  const stack = [];
+  for (const seg of parts) {
+    if (seg === '' || seg === '.') continue;
+    if (seg === '..') stack.pop();
+    else stack.push(seg);
+  }
+  const resolved = stack.join('/');
+  if (MANIFEST.files[resolved]) return resolved;
+  // try matching by basename if direct path miss (folder name typos etc.)
+  const base = resolved.split('/').pop();
+  const matches = Object.keys(MANIFEST.files).filter(p => p.split('/').pop() === base);
+  if (matches.length === 1) return matches[0];
+  // partial: last folder + basename
+  const tail = stack.slice(-2).join('/');
+  const tailMatches = Object.keys(MANIFEST.files).filter(p => p.toLowerCase().endsWith(tail.toLowerCase()));
+  if (tailMatches.length === 1) return tailMatches[0];
+  // stem-prefix match: "01_Erstkontakt.png" should match "01_Erstkontakt 24.01.26.png"
+  const dot = base.lastIndexOf('.');
+  if (dot > 0) {
+    const stem = base.slice(0, dot);
+    const ext = base.slice(dot).toLowerCase();
+    const stemMatches = Object.keys(MANIFEST.files).filter(p => {
+      const b = p.split('/').pop();
+      return b.toLowerCase().endsWith(ext) && b.toLowerCase().split(/\s+/)[0] === stem.toLowerCase();
+    });
+    if (stemMatches.length === 1) return stemMatches[0];
+  }
+  return null;
+}
+
+// Walk text nodes and wrap mentions of known files (basename, lastFolder/basename, full path) in clickable spans.
+function autoLinkText(container) {
+  const paths = Object.keys(MANIFEST.files);
+  const terms = [];
+  const seen = new Set();
+  for (const p of paths) {
+    const base = p.split('/').pop();
+    const folder = p.includes('/') ? p.split('/').slice(0, -1).join('/') : '';
+    const lastFolder = folder ? folder.split('/').pop() : '';
+    const dot = base.lastIndexOf('.');
+    const stem = dot > 0 ? base.slice(0, dot) : base;
+    const ext = dot > 0 ? base.slice(dot) : '';
+    const stemFirst = stem.split(/\s+/)[0]; // "01_Erstkontakt 24.01.26" -> "01_Erstkontakt"
+    const baseVariants = [base];
+    if (stemFirst && stemFirst !== stem) baseVariants.push(stemFirst + ext);
+    const folderVariants = [];
+    if (lastFolder) {
+      folderVariants.push(lastFolder, lastFolder.trim());
+      const shortFolder = lastFolder.replace(/^Kommunikation\s+/i, '').trim();
+      if (shortFolder && shortFolder !== lastFolder.trim()) folderVariants.push(shortFolder);
+    }
+    const candidates = [p, ...baseVariants];
+    for (const f of folderVariants) for (const b of baseVariants) candidates.push(f + '/' + b);
+    for (const t of candidates) {
+      const k = t.toLowerCase();
+      if (seen.has(k)) continue;
+      seen.add(k);
+      terms.push({ term: t, target: p });
+    }
+  }
+  terms.sort((a, b) => b.term.length - a.term.length);
+
+  const escapeRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const pattern = new RegExp('(?<![\\w/])(' + terms.map(t => escapeRe(t.term)).join('|') + ')(?![\\w])', 'gi');
+  const lookup = new Map(terms.map(t => [t.term.toLowerCase(), t.target]));
+
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, {
+    acceptNode: (node) => {
+      // skip if inside an <a> already
+      let p = node.parentNode;
+      while (p && p !== container) { if (p.nodeName === 'A' || (p.classList && p.classList.contains('ref-link'))) return NodeFilter.FILTER_REJECT; p = p.parentNode; }
+      return pattern.test(node.nodeValue) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+    }
+  });
+  pattern.lastIndex = 0;
+
+  const targets = [];
+  let n;
+  while ((n = walker.nextNode())) targets.push(n);
+
+  for (const node of targets) {
+    pattern.lastIndex = 0;
+    const text = node.nodeValue;
+    const frag = document.createDocumentFragment();
+    let last = 0, m;
+    while ((m = pattern.exec(text))) {
+      if (m.index > last) frag.appendChild(document.createTextNode(text.slice(last, m.index)));
+      const target = lookup.get(m[1].toLowerCase());
+      if (target) {
+        const span = document.createElement('span');
+        span.className = 'ref-link';
+        span.textContent = m[1];
+        span.onclick = () => openFile(target);
+        frag.appendChild(span);
+      } else {
+        frag.appendChild(document.createTextNode(m[1]));
+      }
+      last = m.index + m[1].length;
+    }
+    if (last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));
+    node.parentNode.replaceChild(frag, node);
+  }
+}
+
+function rewriteLinks(container, fromPath) {
+  container.querySelectorAll('a[href]').forEach(a => {
+    const href = a.getAttribute('href');
+    const target = resolveRef(href, fromPath);
+    if (target) {
+      a.classList.add('ref-link');
+      a.removeAttribute('href');
+      a.style.cursor = 'pointer';
+      a.onclick = (e) => { e.preventDefault(); openFile(target); };
+    } else if (/^https?:/i.test(href)) {
+      a.target = '_blank';
+      a.rel = 'noopener';
+    }
+  });
+  container.querySelectorAll('img[src]').forEach(img => {
+    const src = img.getAttribute('src');
+    const target = resolveRef(src, fromPath);
+    if (target) img.src = ensureBlobUrl(target);
+  });
+}
+</script>
+</body>
+</html>
