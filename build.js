@@ -41,11 +41,13 @@ function walk(dir, rel = '') {
   const out = [];
   for (const e of entries) {
     const full = path.join(dir, e.name);
-    const relPath = rel ? rel + '/' + e.name : e.name;
+    // Normalize to NFC so Markdown references (typed in NFC) match macOS NFD filenames
+    const nfcName = e.name.normalize('NFC');
+    const relPath = rel ? rel + '/' + nfcName : nfcName;
     if (e.isDirectory()) {
-      out.push({ type: 'dir', name: e.name, path: relPath, children: walk(full, relPath) });
+      out.push({ type: 'dir', name: nfcName, path: relPath, children: walk(full, relPath) });
     } else {
-      out.push({ type: 'file', name: e.name, path: relPath, kind: kindFor(e.name), mime: mimeFor(e.name) });
+      out.push({ type: 'file', name: nfcName, path: relPath, kind: kindFor(e.name), mime: mimeFor(e.name) });
     }
   }
   return out;
