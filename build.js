@@ -72,9 +72,7 @@ const manifest = {
   generated: new Date().toISOString(),
   title: 'Akte Auto-Tausch Kia/Suzuki — Anwaltsdokumentation',
   notes: [
-    'Werkstattrechnung Kia Picanto wird noch korrigiert (aktuell vorläufige Version).',
-    'TÜV-Bericht (HU) wird vom Prüfer neu ausgestellt — wird nachgereicht.'
-  ],
+    'Werkstattrechnung Kia Picanto wird noch korrigiert (aktuell vorläufige Version).',  ],
   tree,
   files
 };
